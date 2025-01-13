@@ -6,5 +6,8 @@ app.use(express.json());
 
 // Rotas
 app.use('/tasks', tasksRoutes);
+app.get('/', (req, res) => {
+    res.json('API is running')
+  })
 
 export default app;

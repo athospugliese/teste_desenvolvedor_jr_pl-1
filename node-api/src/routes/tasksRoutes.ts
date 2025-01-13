@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { TasksRepository } from "../repositories/tasksRepository";
+import axios from "axios";
 
 const router = Router();
 const tasksRepository = new TasksRepository();
@@ -7,29 +8,21 @@ const tasksRepository = new TasksRepository();
 // POST: Cria uma tarefa e solicita resumo ao serviço Python
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const { text } = req.body;
-    if (!text) {
-      return res.status(400).json({ error: 'Campo "text" é obrigatório.' });
+    const { text, lang } = req.body;
+    if (!text || !lang) {
+      return res.status(400).json({ error: 'Campos "text" e "lang" são obrigatórios.' });
     }
 
-    // Cria a "tarefa"
-    const task = tasksRepository.createTask(text);
+    // Chamar a API de resumo
+    const response = await axios.post("http://localhost:8000/summarize", { text, lang });
+    const summary = response.data.summary;
 
-    // Deve solicitar o resumo do texto ao serviço Python
-    const summary = "Resumo da tarefa";
-
-    // Atualiza a tarefa com o resumo
-    tasksRepository.updateTask(task.id, summary);
-
-    return res.status(201).json({
-      message: "Tarefa criada com sucesso!",
-      task: tasksRepository.getTaskById(task.id),
-    });
+    // Criar a tarefa no repositório
+    const task = tasksRepository.createTask(text, lang, summary);
+    return res.status(201).json(task);
   } catch (error) {
     console.error("Erro ao criar tarefa:", error);
-    return res
-      .status(500)
-      .json({ error: "Ocorreu um erro ao criar a tarefa." });
+    return res.status(500).json({ error: "Ocorreu um erro ao criar a tarefa." });
   }
 });
 
@@ -38,5 +31,16 @@ router.get("/", (req, res) => {
   const tasks = tasksRepository.getAllTasks();
   return res.json(tasks);
 });
+
+// GET: Lista uma tarefa específica
+router.get("/:id", (req, res) => {
+  const taskId = Number(req.params.id);
+  const task = tasksRepository.getTaskById(taskId);
+  if (!task) {
+    return res.status(404).json({ error: "Tarefa não encontrada." });
+  }
+  return res.json(task);
+});
+
 
 export default router;
